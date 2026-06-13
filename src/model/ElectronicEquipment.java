@@ -1,12 +1,13 @@
 package model;
 
 public class ElectronicEquipment extends Equipment {
-    public ElectronicEquipment(int equipmentId, String name, int dailyRate, String category) {
-        super(equipmentId, name, dailyRate, category, true);
+
+    public ElectronicEquipment(String equipmentId, String name, int dailyRate, EquipmentStatus status) {
+        super(equipmentId, name, dailyRate, "Electronic Equipment", status);
     }
 
     @Override
     public String getEquipmentType() {
-        return "Electronic equipment";
+        return "Electronic Equipment";
     }
 }

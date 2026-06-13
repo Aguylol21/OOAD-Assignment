@@ -18,24 +18,20 @@ public class EquipmentService {
             String equipmentId,
             String name,
             String category,
-            double dailyRate,
-            String description
+            int dailyRate
     ) throws SQLException {
 
         validateInput(equipmentId, name, dailyRate);
 
         if (repository.findById(equipmentId).isPresent()) {
-            throw new IllegalArgumentException(
-                    "Equipment ID already exists."
-            );
+            throw new IllegalArgumentException("Equipment ID already exists.");
         }
 
         Equipment equipment = createEquipment(
                 equipmentId,
                 name,
                 category,
-                dailyRate,
-                description
+                dailyRate
         );
 
         repository.add(equipment);
@@ -52,30 +48,23 @@ public class EquipmentService {
     public void updateEquipment(
             String equipmentId,
             String name,
-            double dailyRate,
-            EquipmentStatus status,
-            String description
+            int dailyRate,
+            EquipmentStatus status
     ) throws SQLException {
 
         Equipment equipment = repository.findById(equipmentId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Equipment not found."
-                        )
-                );
+                .orElseThrow(() -> new IllegalArgumentException("Equipment not found."));
 
         validateInput(equipmentId, name, dailyRate);
 
         equipment.setName(name);
         equipment.setDailyRate(dailyRate);
         equipment.setStatus(status);
-        equipment.setDescription(description);
 
         repository.update(equipment);
     }
 
-    public boolean removeEquipment(String equipmentId)
-            throws SQLException {
+    public boolean removeEquipment(String equipmentId) throws SQLException {
         return repository.deleteById(equipmentId);
     }
 
@@ -83,65 +72,49 @@ public class EquipmentService {
             String id,
             String name,
             String category,
-            double rate,
-            String description
+            int rate
     ) {
         return switch (category) {
-            case "Electronics" ->
-                new ElectronicsEquipment(
-                        id,
-                        name,
-                        rate,
-                        EquipmentStatus.AVAILABLE,
-                        description
-                );
+            case "Electronic Equipment" -> new ElectronicEquipment(
+                    id,
+                    name,
+                    rate,
+                    EquipmentStatus.AVAILABLE
+            );
 
-            case "Media Equipment" ->
-                new MediaEquipment(
-                        id,
-                        name,
-                        rate,
-                        EquipmentStatus.AVAILABLE,
-                        description
-                );
+            case "Media Equipment" -> new MediaEquipment(
+                    id,
+                    name,
+                    rate,
+                    EquipmentStatus.AVAILABLE
+            );
 
-            case "Laboratory Equipment" ->
-                new LaboratoryEquipment(
-                        id,
-                        name,
-                        rate,
-                        EquipmentStatus.AVAILABLE,
-                        description
-                );
+            case "Laboratory Equipment" -> new LaboratoryEquipment(
+                    id,
+                    name,
+                    rate,
+                    EquipmentStatus.AVAILABLE
+            );
 
-            default ->
-                throw new IllegalArgumentException(
-                        "Invalid equipment category."
-                );
+            default -> throw new IllegalArgumentException("Invalid equipment category.");
         };
     }
 
     private void validateInput(
             String equipmentId,
             String name,
-            double dailyRate
+            int dailyRate
     ) {
         if (equipmentId == null || equipmentId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Equipment ID is required."
-            );
+            throw new IllegalArgumentException("Equipment ID is required.");
         }
 
         if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Equipment name is required."
-            );
+            throw new IllegalArgumentException("Equipment name is required.");
         }
 
         if (dailyRate <= 0) {
-            throw new IllegalArgumentException(
-                    "Daily rate must be greater than zero."
-            );
+            throw new IllegalArgumentException("Daily rate must be greater than zero.");
         }
     }
 }

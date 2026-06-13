@@ -1,40 +1,22 @@
 package repository;
 
 import model.Equipment;
-import java.util.ArrayList;
 
-public class EquipmentRepository {
-    private ArrayList<Equipment> equipmentList;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
 
-    public EquipmentRepository() {
-        equipmentList = new ArrayList<>();
-    }
+public interface EquipmentRepository {
 
-    public void addEquipment(Equipment equipment) {
-        equipmentList.add(equipment);
-    }
+    void add(Equipment equipment) throws SQLException;
 
-    public ArrayList<Equipment> getAllEquipment() {
-        return equipmentList;
-    }
+    void update(Equipment equipment) throws SQLException;
 
-    public Equipment findById(String equipmentId) {
-        for (Equipment equipment : equipmentList) {
-            if (equipment.getEquipmentId().equalsIgnoreCase(equipmentId)) {
-                return equipment;
-            }
-        }
-        return null;
-    }
+    boolean deleteById(String equipmentId) throws SQLException;
 
-    public boolean removeEquipment(String equipmentId) {
-        Equipment equipment = findById(equipmentId);
+    Optional<Equipment> findById(String equipmentId) throws SQLException;
 
-        if (equipment != null) {
-            equipmentList.remove(equipment);
-            return true;
-        }
+    List<Equipment> findAll() throws SQLException;
 
-        return false;
-    }
+    List<Equipment> findAvailable() throws SQLException;
 }

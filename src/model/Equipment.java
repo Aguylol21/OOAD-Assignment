@@ -1,33 +1,33 @@
 package model;
 
 public abstract class Equipment {
-    private int equipmentId;
+
+    private String equipmentId;
     private String name;
     private int dailyRate;
     private String category;
-    private Boolean isAvailable;
-    EquipmentStatus status;
+    private EquipmentStatus status;
 
-    public Equipment(int equipmentId, String name, int dailyRate, String category, Boolean isAvailable) {
+    public Equipment(String equipmentId, String name, int dailyRate, String category, EquipmentStatus status) {
         this.equipmentId = equipmentId;
         this.name = name;
         this.dailyRate = dailyRate;
         this.category = category;
-        this.isAvailable = true;
         this.status = status;
     }
 
-    public int getEquipmentId() {
+    public String getEquipmentId() {
         return equipmentId;
     }
-    public void setEquipmentId(int equipmentId) {
+
+    public void setEquipmentId(String equipmentId) {
         this.equipmentId = equipmentId;
     }
 
     public String getName() {
         return name;
     }
-    
+
     public void setName(String name) {
         this.name = name;
     }
@@ -48,17 +48,17 @@ public abstract class Equipment {
         this.category = category;
     }
 
-    public Boolean getIsAvailable() {
-        return isAvailable;
-    }
-
-    public void setIsAvailable(Boolean isAvailable) {
-        this.isAvailable = isAvailable;
-    }
-
-    public abstract String getEquipmentType();
-
     public EquipmentStatus getStatus() {
         return status;
     }
+
+    public void setStatus(EquipmentStatus status) {
+        this.status = status;
+    }
+
+    public boolean isAvailable() {
+        return status == EquipmentStatus.AVAILABLE;
+    }
+
+    public abstract String getEquipmentType();
 }
