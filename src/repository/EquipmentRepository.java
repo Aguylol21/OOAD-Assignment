@@ -12,6 +12,8 @@ public interface EquipmentRepository {
 
     void update(Equipment equipment) throws SQLException;
 
+    void update(String oldEquipmentId, Equipment equipment) throws SQLException;
+
     boolean deleteById(String equipmentId) throws SQLException;
 
     Optional<Equipment> findById(String equipmentId) throws SQLException;

@@ -1,8 +1,9 @@
 package view;
 
+import facade.RentalFacade;
 import model.Equipment;
+import model.EquipmentCategoryConstants;
 import model.EquipmentStatus;
-import service.EquipmentService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -12,7 +13,7 @@ import java.util.List;
 
 public class EquipmentPanel extends JPanel {
 
-    private EquipmentService equipmentService;
+    private RentalFacade rentalFacade;
 
     private JTextField idField;
     private JTextField nameField;
@@ -23,9 +24,11 @@ public class EquipmentPanel extends JPanel {
 
     private JTable equipmentTable;
     private DefaultTableModel tableModel;
+    private boolean fillingFieldsFromTable;
+    private String selectedEquipmentId;
 
-    public EquipmentPanel(EquipmentService equipmentService) {
-        this.equipmentService = equipmentService;
+    public EquipmentPanel(RentalFacade rentalFacade) {
+        this.rentalFacade = rentalFacade;
 
         setLayout(new BorderLayout());
 
@@ -39,14 +42,11 @@ public class EquipmentPanel extends JPanel {
         formPanel.setBorder(BorderFactory.createTitledBorder("Equipment Management"));
 
         idField = new JTextField();
+        idField.setEditable(false);
         nameField = new JTextField();
         rateField = new JTextField();
 
-        categoryComboBox = new JComboBox<>(new String[]{
-                "Electronic Equipment",
-                "Media Equipment",
-                "Laboratory Equipment"
-        });
+        categoryComboBox = new JComboBox<>(EquipmentCategoryConstants.getAllCategories());
 
         statusComboBox = new JComboBox<>(EquipmentStatus.values());
 
@@ -86,6 +86,9 @@ public class EquipmentPanel extends JPanel {
         updateButton.addActionListener(e -> updateEquipment());
         deleteButton.addActionListener(e -> deleteEquipment());
         clearButton.addActionListener(e -> clearFields());
+        categoryComboBox.addActionListener(e -> updateGeneratedEquipmentId());
+
+        updateGeneratedEquipmentId();
     }
 
     private void createTablePanel() {
@@ -97,8 +100,18 @@ public class EquipmentPanel extends JPanel {
                 "Status"
         };
 
-        tableModel = new DefaultTableModel(columns, 0);
+        tableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                return switch (columnIndex) {
+                    case 3 -> Integer.class;
+                    case 4 -> EquipmentStatus.class;
+                    default -> String.class;
+                };
+            }
+        };
         equipmentTable = new JTable(tableModel);
+        equipmentTable.setAutoCreateRowSorter(true);
 
         JScrollPane scrollPane = new JScrollPane(equipmentTable);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Equipment List"));
@@ -118,15 +131,17 @@ public class EquipmentPanel extends JPanel {
             String name = nameField.getText().trim();
             String category = categoryComboBox.getSelectedItem().toString();
             int dailyRate = Integer.parseInt(rateField.getText().trim());
+            EquipmentStatus status = (EquipmentStatus) statusComboBox.getSelectedItem();
 
-            equipmentService.addEquipment(
+            rentalFacade.addEquipment(
                     equipmentId,
                     name,
                     category,
-                    dailyRate
+                    dailyRate,
+                    status
             );
 
-            JOptionPane.showMessageDialog(this, "Equipment added successfully.");
+            JOptionPane.showMessageDialog(this, "Equipment added successfully. ID: " + equipmentId);
             clearFields();
             loadEquipmentTable();
 
@@ -144,19 +159,21 @@ public class EquipmentPanel extends JPanel {
 
     private void updateEquipment() {
         try {
-            String equipmentId = idField.getText().trim();
+            String equipmentId = selectedEquipmentId == null ? idField.getText().trim() : selectedEquipmentId;
             String name = nameField.getText().trim();
+            String category = categoryComboBox.getSelectedItem().toString();
             int dailyRate = Integer.parseInt(rateField.getText().trim());
             EquipmentStatus status = (EquipmentStatus) statusComboBox.getSelectedItem();
 
-            equipmentService.updateEquipment(
+            rentalFacade.updateEquipment(
                     equipmentId,
                     name,
+                    category,
                     dailyRate,
                     status
             );
 
-            JOptionPane.showMessageDialog(this, "Equipment updated successfully.");
+            JOptionPane.showMessageDialog(this, "Equipment updated successfully. ID: " + idField.getText().trim());
             clearFields();
             loadEquipmentTable();
 
@@ -174,7 +191,7 @@ public class EquipmentPanel extends JPanel {
 
     private void deleteEquipment() {
         try {
-            String equipmentId = idField.getText().trim();
+            String equipmentId = selectedEquipmentId == null ? idField.getText().trim() : selectedEquipmentId;
 
             if (equipmentId.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter or select an equipment ID.");
@@ -189,7 +206,7 @@ public class EquipmentPanel extends JPanel {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                boolean deleted = equipmentService.removeEquipment(equipmentId);
+                boolean deleted = rentalFacade.removeEquipment(equipmentId);
 
                 if (deleted) {
                     JOptionPane.showMessageDialog(this, "Equipment deleted successfully.");
@@ -210,7 +227,7 @@ public class EquipmentPanel extends JPanel {
         try {
             tableModel.setRowCount(0);
 
-            List<Equipment> equipmentList = equipmentService.getAllEquipment();
+            List<Equipment> equipmentList = rentalFacade.getAllEquipment();
 
             for (Equipment equipment : equipmentList) {
                 Object[] row = {
@@ -230,20 +247,29 @@ public class EquipmentPanel extends JPanel {
         }
     }
 
+    public void refreshEquipmentData() {
+        loadEquipmentTable();
+    }
+
     private void fillFieldsFromSelectedRow() {
         int selectedRow = equipmentTable.getSelectedRow();
 
         if (selectedRow >= 0) {
-            idField.setText(tableModel.getValueAt(selectedRow, 0).toString());
-            nameField.setText(tableModel.getValueAt(selectedRow, 1).toString());
-            categoryComboBox.setSelectedItem(tableModel.getValueAt(selectedRow, 2).toString());
-            rateField.setText(tableModel.getValueAt(selectedRow, 3).toString());
+            fillingFieldsFromTable = true;
+            int modelRow = equipmentTable.convertRowIndexToModel(selectedRow);
+
+            selectedEquipmentId = tableModel.getValueAt(modelRow, 0).toString();
+            idField.setText(selectedEquipmentId);
+            nameField.setText(tableModel.getValueAt(modelRow, 1).toString());
+            categoryComboBox.setSelectedItem(tableModel.getValueAt(modelRow, 2).toString());
+            rateField.setText(tableModel.getValueAt(modelRow, 3).toString());
 
             EquipmentStatus status = EquipmentStatus.valueOf(
-                    tableModel.getValueAt(selectedRow, 4).toString()
+                    tableModel.getValueAt(modelRow, 4).toString()
             );
 
             statusComboBox.setSelectedItem(status);
+            fillingFieldsFromTable = false;
         }
     }
 
@@ -251,8 +277,25 @@ public class EquipmentPanel extends JPanel {
         idField.setText("");
         nameField.setText("");
         rateField.setText("");
+        selectedEquipmentId = null;
+        equipmentTable.clearSelection();
         categoryComboBox.setSelectedIndex(0);
         statusComboBox.setSelectedItem(EquipmentStatus.AVAILABLE);
-        equipmentTable.clearSelection();
+        updateGeneratedEquipmentId();
+    }
+
+    private void updateGeneratedEquipmentId() {
+        if (fillingFieldsFromTable) {
+            return;
+        }
+
+        try {
+            String category = categoryComboBox.getSelectedItem().toString();
+            idField.setText(rentalFacade.generateEquipmentId(category));
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Database error while generating equipment ID.");
+            e.printStackTrace();
+        }
     }
 }

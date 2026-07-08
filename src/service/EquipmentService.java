@@ -9,17 +9,24 @@ import java.util.List;
 public class EquipmentService {
 
     private final EquipmentRepository repository;
+    private final EquipmentFactory equipmentFactory;
 
     public EquipmentService(EquipmentRepository repository) {
         this.repository = repository;
+        this.equipmentFactory = new EquipmentFactory();
     }
 
     public void addEquipment(
             String equipmentId,
             String name,
             String category,
-            int dailyRate
+            int dailyRate,
+            EquipmentStatus status
     ) throws SQLException {
+
+        if (equipmentId == null || equipmentId.isBlank()) {
+            equipmentId = generateEquipmentId(category);
+        }
 
         validateInput(equipmentId, name, dailyRate);
 
@@ -27,11 +34,12 @@ public class EquipmentService {
             throw new IllegalArgumentException("Equipment ID already exists.");
         }
 
-        Equipment equipment = createEquipment(
+        Equipment equipment = equipmentFactory.createEquipment(
                 equipmentId,
                 name,
                 category,
-                dailyRate
+                dailyRate,
+                status
         );
 
         repository.add(equipment);
@@ -45,59 +53,66 @@ public class EquipmentService {
         return repository.findAvailable();
     }
 
+    public String generateEquipmentId(String category) throws SQLException {
+        String prefix = EquipmentCategoryConstants.getPrefix(category);
+        int maxEquipmentNumber = 0;
+
+        for (Equipment equipment : repository.findAll()) {
+            String equipmentId = equipment.getEquipmentId();
+
+            if (equipmentId != null && equipmentId.startsWith(prefix)) {
+                try {
+                    int equipmentNumber = Integer.parseInt(equipmentId.substring(prefix.length()));
+                    maxEquipmentNumber = Math.max(maxEquipmentNumber, equipmentNumber);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        return prefix + String.format("%03d", maxEquipmentNumber + 1);
+    }
+
+    public Equipment getEquipmentById(String equipmentId) throws SQLException {
+        return repository.findById(equipmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Equipment not found."));
+    }
+
     public void updateEquipment(
             String equipmentId,
             String name,
+            String category,
             int dailyRate,
             EquipmentStatus status
     ) throws SQLException {
 
-        Equipment equipment = repository.findById(equipmentId)
+        Equipment existingEquipment = repository.findById(equipmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Equipment not found."));
 
-        validateInput(equipmentId, name, dailyRate);
+        String newEquipmentId = equipmentId;
 
-        equipment.setName(name);
-        equipment.setDailyRate(dailyRate);
-        equipment.setStatus(status);
+        if (!existingEquipment.getCategory().equals(category)) {
+            newEquipmentId = generateEquipmentId(category);
+        }
 
-        repository.update(equipment);
+        validateInput(newEquipmentId, name, dailyRate);
+
+        if (!newEquipmentId.equals(equipmentId) && repository.findById(newEquipmentId).isPresent()) {
+            throw new IllegalArgumentException("Equipment ID already exists.");
+        }
+
+        Equipment equipment = equipmentFactory.createEquipment(
+                newEquipmentId,
+                name,
+                category,
+                dailyRate,
+                status
+        );
+
+        repository.update(equipmentId, equipment);
     }
 
     public boolean removeEquipment(String equipmentId) throws SQLException {
         return repository.deleteById(equipmentId);
-    }
-
-    private Equipment createEquipment(
-            String id,
-            String name,
-            String category,
-            int rate
-    ) {
-        return switch (category) {
-            case "Electronic Equipment" -> new ElectronicEquipment(
-                    id,
-                    name,
-                    rate,
-                    EquipmentStatus.AVAILABLE
-            );
-
-            case "Media Equipment" -> new MediaEquipment(
-                    id,
-                    name,
-                    rate,
-                    EquipmentStatus.AVAILABLE
-            );
-
-            case "Laboratory Equipment" -> new LaboratoryEquipment(
-                    id,
-                    name,
-                    rate,
-                    EquipmentStatus.AVAILABLE
-            );
-
-            default -> throw new IllegalArgumentException("Invalid equipment category.");
-        };
     }
 
     private void validateInput(

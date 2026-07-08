@@ -60,5 +60,7 @@ public abstract class Equipment {
         return status == EquipmentStatus.AVAILABLE;
     }
 
+    public abstract double calculateRentalFee(int rentalDays);
+
     public abstract String getEquipmentType();
 }

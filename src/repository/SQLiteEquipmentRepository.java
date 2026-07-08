@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public class SQLiteEquipmentRepository implements EquipmentRepository {
 
+    private final EquipmentFactory equipmentFactory = new EquipmentFactory();
+
     @Override
     public void add(Equipment equipment) throws SQLException {
         String sql = """
@@ -34,9 +36,14 @@ public class SQLiteEquipmentRepository implements EquipmentRepository {
 
     @Override
     public void update(Equipment equipment) throws SQLException {
+        update(equipment.getEquipmentId(), equipment);
+    }
+
+    @Override
+    public void update(String oldEquipmentId, Equipment equipment) throws SQLException {
         String sql = """
             UPDATE equipment
-            SET name = ?, daily_rate = ?, category = ?, status = ?
+            SET equipment_id = ?, name = ?, daily_rate = ?, category = ?, status = ?
             WHERE equipment_id = ?
             """;
 
@@ -44,14 +51,17 @@ public class SQLiteEquipmentRepository implements EquipmentRepository {
             Connection connection = DatabaseManager.getConnection();
             PreparedStatement statement = connection.prepareStatement(sql)
         ) {
-            statement.setString(1, equipment.getName());
-            statement.setInt(2, equipment.getDailyRate());
-            statement.setString(3, equipment.getCategory());
-            statement.setString(4, equipment.getStatus().name());
-            statement.setString(5, equipment.getEquipmentId());
+            statement.setString(1, equipment.getEquipmentId());
+            statement.setString(2, equipment.getName());
+            statement.setInt(3, equipment.getDailyRate());
+            statement.setString(4, equipment.getCategory());
+            statement.setString(5, equipment.getStatus().name());
+            statement.setString(6, oldEquipmentId);
 
             statement.executeUpdate();
         }
+
+        updateRentalEquipmentId(oldEquipmentId, equipment.getEquipmentId());
     }
 
     @Override
@@ -137,35 +147,51 @@ public class SQLiteEquipmentRepository implements EquipmentRepository {
         int dailyRate = resultSet.getInt("daily_rate");
         String category = resultSet.getString("category");
 
-        EquipmentStatus status = EquipmentStatus.valueOf(
-                resultSet.getString("status")
-        );
+        EquipmentStatus status = mapStatus(resultSet.getString("status"));
 
-        return switch (category) {
-            case "ELECTRONIC" -> new ElectronicEquipment(
+        try {
+            return equipmentFactory.createEquipment(
                     equipmentId,
                     name,
+                    category,
                     dailyRate,
                     status
             );
-
-            case "MEDIA" -> new MediaEquipment(
-                    equipmentId,
-                    name,
-                    dailyRate,
-                    status
+        } catch (IllegalArgumentException e) {
+            throw new SQLException(
+                    "Unknown equipment category: " + category,
+                    e
             );
+        }
+    }
 
-            case "LABORATORY" -> new LaboratoryEquipment(
-                    equipmentId,
-                    name,
-                    dailyRate,
-                    status
-            );
+    private EquipmentStatus mapStatus(String status) {
+        try {
+            return EquipmentStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            return EquipmentStatus.UNDER_MAINTENANCE;
+        }
+    }
 
-            default -> throw new SQLException(
-                    "Unknown equipment category: " + category
-            );
-        };
+    private void updateRentalEquipmentId(String oldEquipmentId, String newEquipmentId) throws SQLException {
+        if (oldEquipmentId.equals(newEquipmentId)) {
+            return;
+        }
+
+        String sql = """
+            UPDATE rental
+            SET equipment_id = ?
+            WHERE equipment_id = ?
+            """;
+
+        try (
+            Connection connection = DatabaseManager.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+            statement.setString(1, newEquipmentId);
+            statement.setString(2, oldEquipmentId);
+
+            statement.executeUpdate();
+        }
     }
 }
